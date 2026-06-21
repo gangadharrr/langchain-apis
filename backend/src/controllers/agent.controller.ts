@@ -15,13 +15,18 @@ export const toolSchema = z.object({
   schema: z.any(),
 });
 export const agentBodySchema = z.object({
-  message: z.string().min(1, "message must not be empty"),
+  message: z.string().optional(),
   threadId: z.string().optional(),
   commandResponse: z.record(z.string(), z.unknown()).optional(),
   frontendTools: z.array(toolSchema).optional(),
-});
+}).refine(
+  (data) => data.message || data.commandResponse,
+  { message: "Either message or commandResponse must be provided" },
+);
 
 export type AgentBody = z.infer<typeof agentBodySchema>;
+
+
 
 /**
  * POST /api/v1/agent/stream
