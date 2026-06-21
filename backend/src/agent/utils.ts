@@ -132,7 +132,7 @@ export async function* streamAgent(
         for (const message of chunk.model_request.messages) {
           yield {
             eventType: EventType.TEXT_MESSAGE_END,
-            eventData: {},
+            eventData: { aiMessage: extractTextFromContentBlocks(message.contentBlocks), fullMessage: message },
           };
         }
       }
@@ -141,7 +141,7 @@ export async function* streamAgent(
       if (AIMessageChunk.isInstance(message)) {
         let eventType: EventType;
         let eventData = {};
-        if (message.tool_call_chunks?.length > 0) {
+        if (message.tool_call_chunks && message.tool_call_chunks.length > 0) {
           eventType = EventType.TOOL_CALL_ARGS;
           eventData = {
             aiMessage: extractTextFromContentBlocks(message.contentBlocks),

@@ -5,15 +5,20 @@ import logger from "../config/logger";
 import { AppError } from "../errors/AppError";
 import { createAgent } from "langchain";
 import { externalToolCallMiddleware } from "../agent/external-call.middleware";
-import { RandomNumberTool } from "../agent/tools";
+import { BaseLangChainTool, RandomNumberTool, UIProxyTool } from "../agent/tools";
 import { MemorySaver } from "@langchain/langgraph";
 
-const  memorySaver = new MemorySaver();
-
+const memorySaver = new MemorySaver();
+export const toolSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  schema: z.any(),
+});
 export const agentBodySchema = z.object({
   message: z.string().min(1, "message must not be empty"),
   threadId: z.string().optional(),
   commandResponse: z.record(z.string(), z.unknown()).optional(),
+  frontendTools: z.array(toolSchema).optional(),
 });
 
 export type AgentBody = z.infer<typeof agentBodySchema>;
@@ -28,7 +33,8 @@ export async function streamController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const { message, threadId, commandResponse } = request.body as AgentBody;
+  const { message, threadId, commandResponse, frontendTools } =
+    request.body as AgentBody;
   logger.info({ threadId, message }, "Agent stream request");
 
   reply.raw.writeHead(200, {
@@ -38,7 +44,14 @@ export async function streamController(
   });
 
   try {
-    const tools = [new RandomNumberTool()];
+    const tools: BaseLangChainTool[] = [new RandomNumberTool()];
+    if (frontendTools) {
+      tools.push(
+        ...frontendTools.map(
+          (tool) => new UIProxyTool(tool.name, tool.description, tool.schema),
+        ),
+      );
+    }
     const agent = createAgent({
       model: createChatModel(),
       tools: tools,

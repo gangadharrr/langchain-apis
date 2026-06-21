@@ -15,7 +15,7 @@ export function extractThinking(
   }
 
   const thinking = raw.slice(startIdx + startTag.length, endIdx);
-  const clean = raw.slice(0, startIdx) + raw.slice(endIdx + endTag.length);
+  const clean = raw.slice(0, startIdx) + raw.slice(endIdx + endTag.length).replace(/^\n+/, '');
 
   return { clean, thinking };
 }

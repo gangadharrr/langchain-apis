@@ -1,5 +1,6 @@
 import { ContentAndArtifact, StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
+import { createZodSchema } from "../utils/zod.util";
 
 export abstract class BaseLangChainTool extends StructuredTool<unknown> {
   abstract name: string;
@@ -29,11 +30,11 @@ export class UIProxyTool extends BaseLangChainTool {
     description: string;
     schema: z.ZodTypeAny;
     isExternal = true;
-    constructor(name: string, description: string, schema: z.ZodTypeAny, toolResult: string) {
+    constructor(name: string, description: string, schema: Record<string, unknown>) {
         super();
         this.name = name;
         this.description = description;
-        this.schema = schema;
+        this.schema = createZodSchema(schema);
     }
     async _call(args: unknown): Promise<ContentAndArtifact | string> {
         return Promise.resolve("This is a placeholder result from the UIProxyTool.");

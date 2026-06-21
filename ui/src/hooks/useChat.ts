@@ -94,12 +94,6 @@ export function useChat() {
           setEntries([...turnEntries]);
         }
 
-        if (event.eventType === 'TEXT_MESSAGE_END') {
-          const text = (event.eventData as Record<string, unknown>).aiMessage as string ?? '';
-          if (text) appendAIText(turnEntries, text);
-          setEntries([...turnEntries]);
-        }
-
         if (event.eventType === 'TOOL_CALL_ARGS') {
           const data = event.eventData as Record<string, unknown>;
           const text = data.aiMessage as string ?? '';
