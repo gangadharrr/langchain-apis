@@ -34,16 +34,14 @@ function parseArgs(raw: string): Record<string, unknown> | null {
   }
 }
 
-function appendAIText(entries: ConversationEntry[], text: string, fresh: boolean): AssistantMessage {
-  if (!fresh) {
-    const last = findLastAssistant(entries);
-    if (last) {
-      const raw = last.content + text;
-      const { clean, thinking } = extractThinking(raw);
-      last.content = clean;
-      if (thinking !== undefined) last.thinking = thinking;
-      return last;
-    }
+function appendAIText(entries: ConversationEntry[], text: string): AssistantMessage {
+  const last = entries[entries.length - 1];
+  if (last?.kind === 'assistant') {
+    const raw = last.content + text;
+    const { clean, thinking } = extractThinking(raw);
+    last.content = clean;
+    if (thinking !== undefined) last.thinking = thinking;
+    return last;
   }
   const raw = text;
   const { clean, thinking } = extractThinking(raw);
@@ -77,7 +75,7 @@ export function useChat() {
     });
 
     const toolArgsMap = new Map<string, string>();
-    let toolCallsMade = false;
+    const toolIndexMap = new Map<number, ToolCallEntry>();
 
     try {
       for await (const event of streamChat(
@@ -92,13 +90,13 @@ export function useChat() {
         if (event.eventType === 'TEXT_MESSAGE_START' || event.eventType === 'TEXT_MESSAGE_CONTENT') {
           const text = (event.eventData as Record<string, unknown>).aiMessage as string ?? '';
           if (!text) continue;
-          appendAIText(turnEntries, text, toolCallsMade);
+          appendAIText(turnEntries, text);
           setEntries([...turnEntries]);
         }
 
         if (event.eventType === 'TEXT_MESSAGE_END') {
           const text = (event.eventData as Record<string, unknown>).aiMessage as string ?? '';
-          if (text) appendAIText(turnEntries, text, toolCallsMade);
+          if (text) appendAIText(turnEntries, text);
           setEntries([...turnEntries]);
         }
 
@@ -106,30 +104,28 @@ export function useChat() {
           const data = event.eventData as Record<string, unknown>;
           const text = data.aiMessage as string ?? '';
 
-          if (text) {
-            toolCallsMade = false;
-            appendAIText(turnEntries, text, false);
-          }
+          if (text) appendAIText(turnEntries, text);
 
           const chunks = data.toolCallChunks as
             | Array<{ name?: string; id?: string; args?: string; index?: number }>
             | undefined;
 
           if (chunks) {
-            toolCallsMade = true;
             for (const chunk of chunks) {
+              const idx = chunk.index ?? 0;
               const name = chunk.name ?? 'tool';
 
-              if (!toolArgsMap.has(name)) {
-                toolArgsMap.set(name, '');
-                turnEntries.push(toolCallEntry(name));
+              if (!toolIndexMap.has(idx)) {
+                const entry = toolCallEntry(name);
+                toolIndexMap.set(idx, entry);
+                turnEntries.push(entry);
               }
 
               if (chunk.args) {
-                const accumulated = (toolArgsMap.get(name) ?? '') + chunk.args;
-                toolArgsMap.set(name, accumulated);
+                const accumulated = (toolArgsMap.get(`i:${idx}`) ?? '') + chunk.args;
+                toolArgsMap.set(`i:${idx}`, accumulated);
 
-                const entry = findToolCallByName(turnEntries, name);
+                const entry = toolIndexMap.get(idx);
                 if (entry) {
                   entry.argsRaw = accumulated;
                   const parsed = parseArgs(accumulated);
@@ -177,13 +173,6 @@ export function useChat() {
   return { entries, isLoading, error, sendMessage, stop, clear };
 }
 
-function findLastAssistant(arr: ConversationEntry[]): AssistantMessage | undefined {
-  for (let i = arr.length - 1; i >= 0; i--) {
-    if (arr[i].kind === 'assistant') return arr[i] as AssistantMessage;
-  }
-  return undefined;
-}
-
 function findLastToolCall(arr: ConversationEntry[]): ToolCallEntry | undefined {
   for (let i = arr.length - 1; i >= 0; i--) {
     if (arr[i].kind === 'tool_call') return arr[i] as ToolCallEntry;
@@ -191,11 +180,4 @@ function findLastToolCall(arr: ConversationEntry[]): ToolCallEntry | undefined {
   return undefined;
 }
 
-function findToolCallByName(arr: ConversationEntry[], name: string): ToolCallEntry | undefined {
-  for (let i = arr.length - 1; i >= 0; i--) {
-    if (arr[i].kind === 'tool_call' && (arr[i] as ToolCallEntry).name === name) {
-      return arr[i] as ToolCallEntry;
-    }
-  }
-  return undefined;
-}
+
