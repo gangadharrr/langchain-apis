@@ -1,8 +1,8 @@
 export function extractThinking(
   raw: string,
 ): { clean: string; thinking: string | undefined } {
-  const startTag = '<think>';
-  const endTag = '</think>';
+  const startTag = '<mm:think>';
+  const endTag = '</mm:think>';
 
   const startIdx = raw.indexOf(startTag);
   if (startIdx === -1) {

@@ -46,17 +46,13 @@ export function MessageList({ entries, isLoading, onToolSubmit }: MessageListPro
                     />
                   </div>
                 );
-              }
-
-              if (entry.kind === 'tool_call') {
+              } else if (entry.kind === 'tool_call') {
                 return (
                   <div key={entry.id} className="animate-fade-in">
                     <ToolCallCard tool={entry} />
                   </div>
                 );
-              }
-
-              if (entry.kind === 'ui_tool_call') {
+              } else if (entry.kind === 'ui_tool_call') {
                 return (
                   <div key={entry.id} className="animate-fade-in">
                     <UIToolCallCard
@@ -111,7 +107,7 @@ function UIToolCallCard({
           <span className="ml-auto text-xs text-[var(--muted)]">awaiting input…</span>
         </div>
         <div className="p-3">
-          <RenderComponent args={entry.args} onSubmit={onSubmit} />
+          <RenderComponent key={entry.id} args={entry.args} onSubmit={onSubmit} />
         </div>
       </div>
     );

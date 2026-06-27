@@ -45,9 +45,11 @@ function appendAIText(entries: ConversationEntry[], text: string): AssistantMess
   if (last?.kind === 'assistant') {
     const raw = last.content + text;
     const { clean, thinking } = extractThinking(raw);
-    last.content = clean;
-    if (thinking !== undefined) last.thinking = thinking;
-    return last;
+    const updated: AssistantMessage = thinking !== undefined
+      ? { ...last, content: clean, thinking }
+      : { ...last, content: clean };
+    entries[entries.length - 1] = updated;
+    return updated;
   }
   const raw = text;
   const { clean, thinking } = extractThinking(raw);
@@ -98,9 +100,7 @@ export function useChat(getToolMetadata?: () => ToolMetadata[]) {
         if (event.eventType === 'RUN_STARTED') {
           const data = event.eventData as Record<string, unknown>;
           if (data.threadId) threadIdRef.current = data.threadId as string;
-        }
-
-        if (event.eventType === 'TEXT_MESSAGE_START' || event.eventType === 'TEXT_MESSAGE_CONTENT') {
+        } else if (event.eventType === 'TEXT_MESSAGE_CONTENT') {
           const text = (event.eventData as Record<string, unknown>).aiMessage as string ?? '';
           if (!text) continue;
           setEntries(prev => {
@@ -108,9 +108,7 @@ export function useChat(getToolMetadata?: () => ToolMetadata[]) {
             appendAIText(updated, text);
             return updated;
           });
-        }
-
-        if (event.eventType === 'TOOL_CALL_ARGS') {
+        } else if (event.eventType === 'TOOL_CALL_ARGS') {
           const data = event.eventData as Record<string, unknown>;
           const text = data.aiMessage as string ?? '';
 
@@ -154,9 +152,7 @@ export function useChat(getToolMetadata?: () => ToolMetadata[]) {
               return updated;
             });
           }
-        }
-
-        if (event.eventType === 'TOOL_CALL_RESULT') {
+        } else if (event.eventType === 'TOOL_CALL_RESULT') {
           const toolMessage = (event.eventData as Record<string, unknown>).toolMessage as string ?? '';
 
           setEntries(prev => {
@@ -174,9 +170,7 @@ export function useChat(getToolMetadata?: () => ToolMetadata[]) {
             }
             return updated;
           });
-        }
-
-        if (event.eventType === 'CUSTOM' && event.customEventName === 'EXTERNAL_TOOL_CALL') {
+        } else if (event.eventType === 'CUSTOM' && event.customEventName === 'EXTERNAL_TOOL_CALL') {
           const data = event.eventData as Record<string, unknown>;
           const toolName = data.toolName as string;
           const toolId = data.toolId as string;
